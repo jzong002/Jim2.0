@@ -98,31 +98,31 @@ void loop()
       //if(Sum<0)
       //{Sum=-Sum-1;}
       Serial.println("both are black");
-      motor(3,FORWARD,(defsped+80+Igain*Sum)-scale));
-      motor(4,FORWARD,(defsped+20-Igain*Sum)-scale));
+      motor(3,FORWARD,(defsped+80+Igain*Sum)-scale);
+      motor(4,FORWARD,(defsped+20-Igain*Sum)-scale);
     }
     else if (sensorValueR==0 && sensorValue2L==1 )
     { 
       // left sensor is on
       //Sum= Sum +1;
       Serial.println("Slowing left");
-      motor(3,FORWARD,(defsped+40+Igain*Sum)-scale));
-      motor(4,FORWARD,(defsped-40-Igain*Sum)-scale)); 
+      motor(3,FORWARD,(defsped+40+Igain*Sum)-scale);
+      motor(4,FORWARD,(defsped-40-Igain*Sum)-scale); 
     }
     else if (sensorValueR==1 && sensorValue2L==0 )
     {   
       // right sensor is on
       //Sum= Sum -1;
       Serial.println("Slowing right");
-      motor(3,FORWARD,(defsped-40+Igain*Sum)-scale));
-      motor(4,FORWARD,(defsped+40-Igain*Sum)-scale));
+      motor(3,FORWARD,(defsped-40+Igain*Sum)-scale);
+      motor(4,FORWARD,(defsped+40-Igain*Sum)-scale);
     }
     else if (sensorValueR==0 && sensorValue2L==0)
     { 
      // both sensor is off the track
      Serial.println("Both are white");
-     motor(3,FORWARD,(defsped+20+Igain*Sum)-scale));
-     motor(4,FORWARD,(defsped+20-Igain*Sum)-scale));   
+     motor(3,FORWARD,(defsped+20+Igain*Sum)-scale);
+     motor(4,FORWARD,(defsped+20-Igain*Sum)-scale);   
     }
     else
     {                           
