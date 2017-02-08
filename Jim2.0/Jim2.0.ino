@@ -1,3 +1,4 @@
+#include <PID_v1.h>
 // Arduino pins for the shift register
 #define MOTORLATCH 12
 #define MOTORCLK 4
@@ -33,13 +34,16 @@
 int sensorValueR = 0;  // right sensor value =0   
 int sensorValue2L = 0; // left sensor value=0
 int Sum=0;         // integral correction value
-int Igain =1;      // Integral gaining value
-int maxS=12;        //Maximum Sum value
-int scale=50;
-int defsped=100;
+const int Igain =1;      // Integral gaining value
+const int maxS=12;        //Maximum Sum value
+const int scale=50;
+const int defsped=100;
+double setpoint, input, output;
 
-int norm=90;
-int low=75;
+int error=0;
+
+const int norm=90;
+const int low=75;
 
 
 // Pins for Left and Right light sensors respectively
@@ -60,6 +64,9 @@ void setup()
   Serial.println("Line Sensing Robot Demo");
   pinMode(lSens, INPUT);
   pinMode(rSens, INPUT);  //Sets pins for line sensors to inputs
+  PID myPID(&input, &output, &setpoint, consKp, consKi, consKd, DIRECT);
+  myPID.SetOutputLimits(-255,255);
+  myPID.SetMode(AUTOMATIC);
 }
 
 
@@ -98,31 +105,32 @@ void loop()
       //if(Sum<0)
       //{Sum=-Sum-1;}
       Serial.println("both are black");
-      motor(3,FORWARD,(defsped+80+Igain*Sum)-scale);
-      motor(4,FORWARD,(defsped+20-Igain*Sum)-scale);
+      //motor(3,FORWARD,(defsped+80+Igain*Sum)-scale);
+      //motor(4,FORWARD,(defsped+20-Igain*Sum)-scale);
     }
     else if (sensorValueR==0 && sensorValue2L==1 )
     { 
       // left sensor is on
-      //Sum= Sum +1;
+      error=-10;
       Serial.println("Slowing left");
-      motor(3,FORWARD,(defsped+40+Igain*Sum)-scale);
-      motor(4,FORWARD,(defsped-40-Igain*Sum)-scale); 
+      //motor(3,FORWARD,);
+      //motor(4,FORWARD,); 
     }
     else if (sensorValueR==1 && sensorValue2L==0 )
     {   
       // right sensor is on
-      //Sum= Sum -1;
+      error=10;
       Serial.println("Slowing right");
-      motor(3,FORWARD,(defsped-40+Igain*Sum)-scale);
-      motor(4,FORWARD,(defsped+40-Igain*Sum)-scale);
+      //motor(3,FORWARD,);
+      //motor(4,FORWARD,);
     }
     else if (sensorValueR==0 && sensorValue2L==0)
     { 
      // both sensor is off the track
+     error=0;
      Serial.println("Both are white");
-     motor(3,FORWARD,(defsped+20+Igain*Sum)-scale);
-     motor(4,FORWARD,(defsped+20-Igain*Sum)-scale);   
+     //motor(3,FORWARD,);
+     //motor(4,FORWARD,);   
     }
     else
     {                           
@@ -130,13 +138,19 @@ void loop()
     }
   
     /////////////////// PI control
-    if ( Sum  > maxS )     // auto correction max value  
-      Sum=maxS;
-    else if (Sum <-maxS)  
-      Sum=-maxS;
+    //if ( Sum  > maxS )     // auto correction max value  
+     // Sum=maxS;
+    //else if (Sum <-maxS)  
+     // Sum=-maxS;
+    
+   myPID.compute();
+    
+    motor(3,FORWARD,);
+    motor(4,FORWARD,);
     delay(5);            // delay 5 milliseconds
   
   }
+  
 }
 //Assumes left motor is on 4 and 2 is right
 /*
