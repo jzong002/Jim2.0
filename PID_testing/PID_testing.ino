@@ -1,41 +1,22 @@
 #include "PID_v1.h"
-#include "PID_AutoTune_v0.h"
-
-// Motion speeds
-const int topSpeed=90;
-const int lowSpeed=75;
-
-//Multiplied by the speed of each individual motor to ensure they spin at the same rate when we give them the same number. 
-//Needs to be tuned for your motors on a case by case basis
-//Remember, if you multiply a float by an int, you will result with a float. You need to recast using (int) to get an integer back out.
-const float rightSpeedMultiplier=.97;
-const float leftSpeedMultiplier=1;
-
-// His variables
-int sensorValueR = 0;  // right sensor value =0   
-int sensorValueL = 0; // left sensor value=0
-int Sum=0;         // integral correction value
-const int Igain =1;      // Integral gaining value
-const int maxS=12;        //Maximum Sum value
-const int scale=50;
-const int defsped=100;
+//#include "PID_AutoTune_v0.h"
 
 // My variables
 double setpoint = 50.0;
 double input, output;
-const float Kp = 3;
-const float Ki = 7;
-const float Kd = 2;
+const float Kp = 10;
+const float Ki = 0;
+const float Kd = 100;
 PID myPID(&input, &output, &setpoint, Kp, Ki, Kd, REVERSE);
 
-int inputArray[20] = {5,10,15,20,25,30,50,50,50,50,75,80,60,50,45,30,20,45,50,50};
+int inputArray[20] = {49,50,50,51,51,52,51,50,50,50,49,48,47,48,48,48,49,50,50,51};
 int i = 0;
 
 void setup() {
   Serial.begin(9600);
   Serial.println("PID controller Demo");
   Serial.println("Input\tOutput");
-  myPID.SetOutputLimits(0,100); //the output will be a decimal between 0 and 1
+  myPID.SetOutputLimits(0,10000); //the output will be a decimal between 0 and 1
   myPID.SetMode(AUTOMATIC);
   myPID.SetSampleTime(1);
 }
