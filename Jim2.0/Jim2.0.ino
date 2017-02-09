@@ -1,4 +1,5 @@
 #include <PID_v1.h>
+
 // Arduino pins for the shift register
 #define MOTORLATCH 12
 #define MOTORCLK 4
@@ -25,38 +26,42 @@
 #define SERVO1_PWM 10
 #define SERVO2_PWM 9
 
-// Codes for the motor function.
+// Enumeration for the motor function.
 #define FORWARD 1
 #define BACKWARD 2
 #define BRAKE 3
 #define RELEASE 4
 
+// Pins for Left and Right light sensors respectively
+const int lSens=A14;
+const int rSens=A15;
+
+// Motion speeds
+const int topSpeed=90;
+const int lowSpeed=75;
+
+//Multiplied by the speed of each individual motor to ensure they spin at the same rate when we give them the same number. 
+//Needs to be tuned for your motors on a case by case basis
+//Remember, if you multiply a float by an int, you will result with a float. You need to recast using (int) to get an integer back out.
+const float rightSpeedMultiplier=.97;
+const float leftSpeedMultiplier=1;
+
+// His variables
 int sensorValueR = 0;  // right sensor value =0   
-int sensorValue2L = 0; // left sensor value=0
+int sensorValueL = 0; // left sensor value=0
 int Sum=0;         // integral correction value
 const int Igain =1;      // Integral gaining value
 const int maxS=12;        //Maximum Sum value
 const int scale=50;
 const int defsped=100;
-double setpoint, input, output;
 
-int error=0;
-
-const int norm=90;
-const int low=75;
-
-
-// Pins for Left and Right light sensors respectively
-
-int lSens=A14;
-int rSens=A15;
-
-//Multiplied by the speed of each individual motor to ensure they spin at the same rate when we give them the same number. 
-//Needs to be tuned for your motors on a case by case basis
-//Remember, if you multiply a float by an int, you will result with a float. You need to recast using (int) to get an integer back out.
-float rConst=.97;
-float lConst=1;
-
+// My variables
+double setpoint = 0.0;
+double input, output;
+const float Kp = 1;
+const float Ki = 1;
+const float Kd = 1;
+PID myPID(&input, &output, &setpoint, Kp, Ki, Kd, DIRECT);
 
 void setup()
 {
@@ -64,107 +69,72 @@ void setup()
   Serial.println("Line Sensing Robot Demo");
   pinMode(lSens, INPUT);
   pinMode(rSens, INPUT);  //Sets pins for line sensors to inputs
-  PID myPID(&input, &output, &setpoint, consKp, consKi, consKd, DIRECT);
-  myPID.SetOutputLimits(-255,255);
+  myPID.SetOutputLimits(0,1); //the output will be a decimal between 0 and 1
   myPID.SetMode(AUTOMATIC);
 }
 
-
 void loop()
 {
- 
   // read the digital in value:
   {
     sensorValueR = analogRead(rSens);       // read the right sensor value
-    sensorValue2L = analogRead(lSens);    // read the left sensors value
+    sensorValueL = analogRead(lSens);    // read the left sensors value
     Serial.println(sensorValueR);
-    Serial.println(sensorValue2L);
+    Serial.println(sensorValueL);
     if (sensorValueR < 512) // change the value of the sensors to 0 and 1 high->black
-    {
-      sensorValueR =0;  // 0 is off the track
-    }
+    { sensorValueR = 0; /* 0 is off the track */ }
     else 
-    {
-      sensorValueR=1; // 1 is on the track
-    }
-
-    if (sensorValue2L < 512)
-    {
-      sensorValue2L =0;
-    }
+    { sensorValueR = 1; /* 1 is on the track */ }
+    if (sensorValueL < 512)
+    { sensorValueL = 0; }
     else 
-    {
-      sensorValue2L =1;
-    }
+    { sensorValueL = 1; }
   
-    if (sensorValueR==1 && sensorValue2L==1 )
-    {  
-      // 2 sensors both on the track
-      //if(Sum>0)
-      //{Sum=-Sum+1;}
-      //if(Sum<0)
-      //{Sum=-Sum-1;}
-      Serial.println("both are black");
-      //motor(3,FORWARD,(defsped+80+Igain*Sum)-scale);
-      //motor(4,FORWARD,(defsped+20-Igain*Sum)-scale);
+    if (sensorValueR == 1 && sensorValueL == 1 ) // both are on the line
+    {
+      Serial.println("both are black"); 
     }
-    else if (sensorValueR==0 && sensorValue2L==1 )
+    else if (sensorValueR == 0 && sensorValueL == 1 ) // left is on right is off
     { 
-      // left sensor is on
-      error=-10;
+      input=-10;
       Serial.println("Slowing left");
-      //motor(3,FORWARD,);
-      //motor(4,FORWARD,); 
     }
-    else if (sensorValueR==1 && sensorValue2L==0 )
+    else if (sensorValueR == 1 && sensorValueL == 0 ) // right is on laft is off
     {   
-      // right sensor is on
-      error=10;
+      input=10;
       Serial.println("Slowing right");
-      //motor(3,FORWARD,);
-      //motor(4,FORWARD,);
     }
-    else if (sensorValueR==0 && sensorValue2L==0)
+    else if (sensorValueR==0 && sensorValueL==0) // both are off the track
     { 
-     // both sensor is off the track
-     error=0;
-     Serial.println("Both are white");
-     //motor(3,FORWARD,);
-     //motor(4,FORWARD,);   
-    }
-    else
-    {                           
-      
+      input=0;
+      Serial.println("Both are white");
     }
   
-    /////////////////// PI control
-    //if ( Sum  > maxS )     // auto correction max value  
-     // Sum=maxS;
-    //else if (Sum <-maxS)  
-     // Sum=-maxS;
-    
-   myPID.compute();
-    
-    motor(3,FORWARD,);
-    motor(4,FORWARD,);
-    delay(5);            // delay 5 milliseconds
-  
+    // compute PID, in theory it should be a smoother ride than just turning on and off wheels based on boolean inputs    
+    myPID.Compute();
+
+    // The PID controller will output between 0 and 1.
+    motor(3,FORWARD, (int)(rightSpeedMultiplier * topSpeed * (1 - output)));
+    motor(4,FORWARD, (int)(leftSpeedMultiplier * topSpeed * output));
+
+    // Delay and then loop
+    delay(5);
   }
   
 }
 //Assumes left motor is on 4 and 2 is right
 /*
 void forward(float rate)
-{     motor(2,FORWARD,(int)(defsped+Igain*Sum)*rate*rConst);
-     motor(4,FORWARD,(int)(defsped-Igain*Sum)*rate*lConst);
+{     motor(2,FORWARD,(int)(defsped+Igain*Sum)*rate*rightSpeedMultiplier);
+     motor(4,FORWARD,(int)(defsped-Igain*Sum)*rate*leftSpeedMultiplier);
 }
 void leftTurn(float rate)
-{motor(4, FORWARD,(int)(defsped+(Igain*Sum))*rate*lConst);
-motor(2,FORWARD,(int)(defsped-(Igain*Sum))*rConst);  
+{motor(4, FORWARD,(int)(defsped+(Igain*Sum))*rate*leftSpeedMultiplier);
+motor(2,FORWARD,(int)(defsped-(Igain*Sum))*rightSpeedMultiplier);  
 }
 void rightTurn(float rate)
-{motor(2, FORWARD,(int)(defsped+(Igain*Sum))*rate*rConst);
-motor(4, FORWARD,(int)(defsped-(Igain*Sum))*lConst);
+{motor(2, FORWARD,(int)(defsped+(Igain*Sum))*rate*rightSpeedMultiplier);
+motor(4, FORWARD,(int)(defsped-(Igain*Sum))*leftSpeedMultiplier);
 }
 //*/
 
