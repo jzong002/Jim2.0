@@ -1,94 +1,15 @@
-#include <PID_v1.h>
-
-// Motor initialization:
 #define LEFT_MOTOR_NUM 4
 #define RIGHT_MOTOR_NUM 3
 
-// Motor Limit and Speed variables and scalars
-const int topSpeed = 191; //changing this does change how the PID can control, effective range of motion is top speed ticks
-const int botSpeed = 64;  // these 2 need to add up to 255
-const double overallSpeedMultiplier = .07; // use this to speed up and slow down the robot overall, must be <= 1.0
-int leftSpeed = topSpeed; 
-int rightSpeed = topSpeed;
-
-// Sensor things
-#define NUM_OF_SENSORS 2
-const int IR_Sensors[NUM_OF_SENSORS] = {A14,A15}; // Left, Right
-int sensorLimit = 100;  // threshold between white and black for reflectance sensors
-int errorValues[NUM_OF_SENSORS] = {-10, 10}; // error values for sensors
-
-// positioning and control values
-double desPos = 0; //desired position/angle
-double curPos; // current position
-double dxSpeed; // change in speed
-double Kp = 8.0; // proportionality constant, his was 5.75  //Evan choose 1.3,.2,.4
-double Ki = 0.5; // integration constant, his was .75
-double Kd = 1.0; // differentiation constant, his was 1.1
-
-// initialize PID class with given varriables and constants
-PID pidExecutive(&curPos, &dxSpeed, &desPos, Kp, Ki, Kd, DIRECT); 
-
-void setup(){
-  // Setup debugging
-  Serial.begin(9600);
-  Serial.println("Line Sensing Robot Demo");
-  printMotorsHeader();
-  
-  //Setup PID
-  pidExecutive.SetMode(AUTOMATIC); 
-  pidExecutive.SetOutputLimits(-191, 191); // minimum contrallable speed of the motor is ~64. max is 255 so range should be ((-255 + 64) <-> (255 - 64))
-  pidExecutive.SetSampleTime(1); //default is 100, not fast enough!
-
-  //Setup sensor pins
-  for(int i = 0; i < NUM_OF_SENSORS; i++){
-    pinMode(IR_Sensors[i], INPUT);
-  }
-
-  //Start Motors
-  updateMotors(leftSpeed,rightSpeed); 
+void setup() {
+  // put your setup code here, to run once:
+  updateMotors(100,94);
 }
 
+void loop() {
 
-void loop(){
-  curPos = calcCurPos();
-  pidExecutive.Compute();
-  adjustSpeed();
-  updateMotors(leftSpeed,rightSpeed); 
-  //printMotors();
-  //printSensors();
-  delay(1); 
 }
 
-/* double calcCurPos
- * For each sensor that is higher then the sensor limit the
- * associated error is summed giving a current position.
- * The Current position will then be 0 for no sensors or
- * both sensors.
- */
-double calcCurPos(){
-  double pos = 0; 
-  for(int i = 0; i < NUM_OF_SENSORS; i++){
-    if(analogRead(IR_Sensors[i]) >= sensorLimit)
-    {
-      pos += errorValues[i];
-    } 
-  }
-  return pos; 
-}
-
-/* void adjustSpeed
- * based on dxSpeed the motors will be adjusted to a new speed
- * and limitted to their motor speed limits.
- * positive dxSpeed cause the robot to turn left
- */
-void adjustSpeed(){
-  leftSpeed -= dxSpeed; 
-  rightSpeed += dxSpeed; 
-  if(leftSpeed > topSpeed){leftSpeed = topSpeed;} 
-  if(leftSpeed < 0){leftSpeed = 0;} 
-  if(rightSpeed > topSpeed){rightSpeed = topSpeed;} 
-  if(rightSpeed < 0){rightSpeed = 0;} 
-}
 
 // Enumeration for the motor function.
 #define FORWARD 1
@@ -100,53 +21,8 @@ void adjustSpeed(){
  * Changes motor speed based on the paramaters, left and right
  */
 void updateMotors(double ls, double rs){ 
-  motor(LEFT_MOTOR_NUM, FORWARD, (int)(ls * overallSpeedMultiplier + botSpeed));
-  motor(RIGHT_MOTOR_NUM, FORWARD, (int)(rs * overallSpeedMultiplier * ((rs * overallSpeedMultiplier - 100) / (155) * (-0.08) + .94) + botSpeed));  //thing joe said to do
-}
-
-/* void stopMotors
- * It stops the motors...
- */
-void stopMotors(){ 
-  motor(LEFT_MOTOR_NUM, FORWARD, 0);
-  motor(RIGHT_MOTOR_NUM, FORWARD, 0);
-}
-
-//////////////////////////////////////////////////////////////////////////
-// Supplied Debug Code
-//////////////////////////////////////////////////////////////////////////
-
-/* void printMotorsHeader
- * To be called in setup in conjuntion with print motors.
- * Gives column names at the start of running
- */
-void printMotorsHeader(){
-  Serial.print("curPos\tdxSpeed\tleftSpeed\trightSpeed\n"); 
-}
-
-/* void printMotors
- * prints out values to see whats going on with the motors
- */
-void printMotors(){
-  Serial.print(curPos); 
-  Serial.print("\t");
-  Serial.print(dxSpeed); 
-  Serial.print("\t");
-  Serial.print(leftSpeed); 
-  Serial.print("\t");
-  Serial.println(rightSpeed); 
-}
-
-/* void printSensors
- * prints out raw sensor inputs 
- */
-void printSensors(){
-  for(int i = 0; i < NUM_OF_SENSORS; i++)
-  {
-    Serial.print(analogRead(IR_Sensors[i]));
-    Serial.print("\t");
-  }
-  Serial.println();
+  motor(LEFT_MOTOR_NUM, FORWARD, (int)(ls * 0.97));
+  motor(RIGHT_MOTOR_NUM, FORWARD, (int)(rs));
 }
 
 //////////////////////////////////////////////////////////////////////////
