@@ -1,162 +1,9 @@
-#include <PID_v1.h>
-
-// Motor initialization:
-#define LEFT_MOTOR_NUM 4
-#define RIGHT_MOTOR_NUM 3
-
-// Motor Limit and Speed variables and scalars
-const int topSpeed = 200; //changing this does change how the PID can control, effective range of motion is top speed ticks
-const int botSpeed = 55;  // these 2 need to add up to 255
-const double overallSpeedMultiplier = .07; // use this to speed up and slow down the robot overall, must be <= 1.0
-int leftSpeed = topSpeed; 
-int rightSpeed = topSpeed;
-
-// Sensor things
-#define NUM_OF_SENSORS 2
-const int IR_Sensors[NUM_OF_SENSORS] = {A14,A15}; // Left, Right
-int sensorLimit = 300;  // threshold between white and black for reflectance sensors
-int errorValues[NUM_OF_SENSORS] = {-150, 150}; // error values for sensors
-
-// positioning and control values
-double desPos = 0; //desired position/angle
-double curPos; // current position
-double dxSpeed; // change in speed
-double Kp = 8.0; // proportionality constant, his was 5.75  //Evan choose 1.3,.2,.4
-double Ki = 0.5; // integration constant, his was .75
-double Kd = 1.0; // differentiation constant, his was 1.1
-
-// initialize PID class with given varriables and constants
-PID pidExecutive(&curPos, &dxSpeed, &desPos, Kp, Ki, Kd, DIRECT); 
-
-void setup(){
-  // Setup debugging
-  Serial.begin(9600);
-  Serial.println("Line Sensing Robot Demo");
-  printMotorsHeader();
-  
-  //Setup PID
-  pidExecutive.SetMode(AUTOMATIC); 
-  pidExecutive.SetOutputLimits(-191, 191); // minimum contrallable speed of the motor is ~64. max is 255 so range should be ((-255 + 64) <-> (255 - 64))
-  pidExecutive.SetSampleTime(1); //default is 100, not fast enough!
-
-  //Setup sensor pins
-  for(int i = 0; i < NUM_OF_SENSORS; i++){
-    pinMode(IR_Sensors[i], INPUT);
-  }
-
-  //Start Motors
-  updateMotors(leftSpeed,rightSpeed); 
-}
-
-
-void loop(){
-  curPos = calcCurPos();
-  pidExecutive.Compute();
-  adjustSpeed();
-  updateMotors(leftSpeed,rightSpeed); 
-  //printMotors();
-  printSensors();
-  delay(1); 
-}
-
-/* double calcCurPos
- * For each sensor that is higher then the sensor limit the
- * associated error is summed giving a current position.
- * The Current position will then be 0 for no sensors or
- * both sensors.
- */
-double calcCurPos(){
-  double pos = 0; 
-  for(int i = 0; i < NUM_OF_SENSORS; i++){
-    if(analogRead(IR_Sensors[i]) >= sensorLimit)
-    {
-      pos += errorValues[i];
-    } 
-  }
-  return pos; 
-}
-
-/* void adjustSpeed
- * based on dxSpeed the motors will be adjusted to a new speed
- * and limitted to their motor speed limits.
- * positive dxSpeed cause the robot to turn left
- */
-void adjustSpeed(){
-  leftSpeed -= dxSpeed; 
-  rightSpeed += dxSpeed; 
-  if(leftSpeed > topSpeed){leftSpeed = topSpeed;} 
-  if(leftSpeed < 0){leftSpeed = 0;} 
-  if(rightSpeed > topSpeed){rightSpeed = topSpeed;} 
-  if(rightSpeed < 0){rightSpeed = 0;} 
-}
-
-// Enumeration for the motor function.
-#define FORWARD 1
-#define BACKWARD 2
-#define BRAKE 3
-#define RELEASE 4
-
-/* void updateMotors
- * Changes motor speed based on the paramaters, left and right
- */
-void updateMotors(double ls, double rs){ 
-  motor(LEFT_MOTOR_NUM, FORWARD, (int)(ls * overallSpeedMultiplier + botSpeed));
-  motor(RIGHT_MOTOR_NUM, FORWARD, (int)(rs * overallSpeedMultiplier * ((rs * overallSpeedMultiplier - 100) / (155) * (-0.08) + .94) + botSpeed));  //thing joe said to do
-}
-
-/* void stopMotors
- * It stops the motors...
- */
-void stopMotors(){ 
-  motor(LEFT_MOTOR_NUM, FORWARD, 0);
-  motor(RIGHT_MOTOR_NUM, FORWARD, 0);
-}
-
-//////////////////////////////////////////////////////////////////////////
-// Supplied Debug Code
-//////////////////////////////////////////////////////////////////////////
-
-/* void printMotorsHeader
- * To be called in setup in conjuntion with print motors.
- * Gives column names at the start of running
- */
-void printMotorsHeader(){
-  Serial.print("curPos\tdxSpeed\tleftSpeed\trightSpeed\n"); 
-}
-
-/* void printMotors
- * prints out values to see whats going on with the motors
- */
-void printMotors(){
-  Serial.print(curPos); 
-  Serial.print("\t");
-  Serial.print(dxSpeed); 
-  Serial.print("\t");
-  Serial.print(leftSpeed); 
-  Serial.print("\t");
-  Serial.println(rightSpeed); 
-}
-
-/* void printSensors
- * prints out raw sensor inputs 
- */
-void printSensors(){
-  for(int i = 0; i < NUM_OF_SENSORS; i++)
-  {
-    Serial.print(analogRead(IR_Sensors[i]));
-    Serial.print("\t");
-  }
-  Serial.println();
-}
-
-//////////////////////////////////////////////////////////////////////////
-// Code to make the motors work
-//////////////////////////////////////////////////////////////////////////
 // Arduino pins for the shift register
 #define MOTORLATCH 12
 #define MOTORCLK 4
 #define MOTORENABLE 7
 #define MOTORDATA 8
+
 // 8-bit bus after the 74HC595 shift register
 // (not Arduino pins)
 // These are used to set the direction of the bridge driver.
@@ -168,6 +15,7 @@ void printSensors(){
 #define MOTOR3_B 7
 #define MOTOR4_A 0
 #define MOTOR4_B 6
+
 // Arduino pins for the PWM signals.
 #define MOTOR1_PWM 11
 #define MOTOR2_PWM 3    //Right Motor
@@ -175,6 +23,120 @@ void printSensors(){
 #define MOTOR4_PWM 5   //Left Motor
 #define SERVO1_PWM 10
 #define SERVO2_PWM 9
+
+// Codes for the motor function.
+#define FORWARD 1
+#define BACKWARD 2
+#define BRAKE 3
+#define RELEASE 4
+
+int sensorValueR = 0;  // right sensor value =0   
+int sensorValue2L = 0; // left sensor value=0
+int Sum=0;         // integral correction value
+int Igain =1;      // Integral gaining value
+int maxS=12;        //Maximum Sum value
+int defsped=100;
+float turnRate=.9;
+
+int left =4;
+int right=3;
+
+// Pins for Left and Right light sensors respectively
+
+int lSens=A14;
+int rSens=A15;
+
+//Multiplied by the speed of each individual motor to ensure they spin at the same rate when we give them the same number. 
+//Needs to be tuned for your motors on a case by case basis
+//Remember, if you multiply a float by an int, you will result with a float. You need to recast using (int) to get an integer back out.
+float rConst=.76;
+float lConst=1.8;
+
+
+void setup()
+{
+  Serial.begin(9600);
+  Serial.println("Line Sensing Robot Demo");
+  pinMode(lSens, INPUT);
+  pinMode(rSens, INPUT);  //Sets pins for line sensors to inputs
+}
+
+
+void loop()
+{
+  // read the digital in value:
+  sensorValueR = analogRead(rSens);       // read the right sensor value
+  sensorValue2L = analogRead(lSens);    // read the left sensors value
+  Serial.println(sensorValueR);
+  Serial.println(sensorValue2L);
+  
+  // change the value of the sensors to 0 and 1 
+  if (sensorValueR < 512){sensorValueR =0;}
+    else{sensorValueR=1;}
+  
+  if (sensorValue2L < 512){sensorValue2L =0;}
+  else{sensorValue2L =1;}
+  
+  if (sensorValueR==0 && sensorValue2L==0 ) 
+  {
+    forward(.5);
+    Serial.println("We are on track");
+  }
+  else if (sensorValueR==0 && sensorValue2L==1 )
+  { 
+    Sum= Sum +1;
+    leftTurn(turnRate);
+    Serial.println("Left sensor detected");
+  }
+  else if (sensorValueR==1 && sensorValue2L==0 )
+  {   
+    Sum= Sum -1;
+    rightTurn(turnRate);
+    Serial.println("Right sensor detected");
+  }
+  else if (sensorValueR==1 && sensorValue2L==1) //what do I do with this condition?
+  { 
+    Sum= Sum -1;
+    leftTurn(turnRate);
+    Serial.println("Off Track!");
+  }
+  else
+  {                          
+    Serial.println("Error detected!");
+    brake();
+  }
+  
+    /////////////////// PI control
+    if ( Sum  > maxS )     // auto correction max value  
+    Sum=maxS;
+    else if (Sum <-maxS)  
+    Sum=-maxS;
+}
+//Assumes left motor is on 3 and 4 is right
+
+void forward(float rate)
+{    
+  Sum=0;
+  motor(left,FORWARD,(int)(defsped+Igain*Sum)*rate*rConst);
+  motor(right,FORWARD,(int)(defsped+Igain*Sum)*rate*lConst);
+}
+void leftTurn(float rate)
+{
+  motor(right, FORWARD,(int)(defsped+(Igain*Sum))*rate*lConst);
+  motor(left,FORWARD,(int)(defsped-(Igain*Sum))*rate*rConst);  
+}
+void rightTurn(float rate)
+{
+  motor(left, FORWARD,(int)(defsped-(Igain*Sum))*rate*rConst);
+  motor(right, FORWARD,(int)(defsped+(Igain*Sum))*rate*lConst);
+}
+void brake()
+{
+  motor(4,FORWARD,0);
+  motor(3,FORWARD,0);
+}
+
+
 // Initializing
 // ------------
 // There is no initialization function.
