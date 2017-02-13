@@ -37,13 +37,6 @@ boolean rightVis = false;
 int left=4;
 int right=3;
 
-//mess with these
-int Pgain=0;         // integral correction value
-float Igain =1.2;      // Integral gaining value //turning speed  was .5
-int maxS=9;        //Maximum Sum value //max turning speed    was 10
-int scale=0;
-int defsped=30; //base speed...kinda  was 30
-int lastmove=0;
 
 // Pins for Left and Right light sensors respectively
 
@@ -53,7 +46,7 @@ int rSens=A15;
 //Multiplied by the speed of each individual motor to ensure they spin at the same rate when we give them the same number. 
 //Needs to be tuned for your motors on a case by case basis
 //Remember, if you multiply a float by an int, you will result with a float. You need to recast using (int) to get an integer back out.
-const float k=.5;
+
 float rConst=.76; //.76
 float lConst=1.8;//1.8
 
@@ -63,25 +56,24 @@ void setup()
   //Serial.println("Line Sensing Robot Demo");
   pinMode(lSens, INPUT);
   pinMode(rSens, INPUT);  //Sets pins for line sensors to inputs
-  motor(left, FORWARD, 88);
-  motor(right, FORWARD, 90);
+  motor(left, FORWARD, 80);
+  motor(right, FORWARD, 95);
   delay(150);
 }
 
-int i=1;
-int P = 0;
-int Pmax = 8;
-int acc = 15;
-int dec = 15;
-int baseSpeedLeft = 60; //60;  worked at 70 70
-int baseSpeedRight = 60; //60;
+int count=0;
+int rcount=0;
+int lcount=0;
+int baseSpeedLeft = 65; //62
+int baseSpeedRight = 65; //65;
 
 void loop()
 {
   // read the digital in value:
   sensorValueR = analogRead(rSens);       // read the right sensor value
   sensorValueL = analogRead(lSens);    // read the left sensors value
-
+//Serial.println(sensorValueR);
+//Serial.println(sensorValueL);
   
   if (sensorValueR < 750) // change the value of the sensors to 0 and 1 
     {rightVis=false;}
@@ -95,29 +87,49 @@ void loop()
     
   if (!leftVis && !rightVis )
   { 
-    P=0;
+        count++;
+    if (count==5000)
+    {
+        motor(left, FORWARD, 80);
+        motor(right, FORWARD, 85);
+          delay(100);
+        count=0;
+    }
     motor(left, FORWARD,baseSpeedLeft);
     motor(right, FORWARD,baseSpeedRight);
+    lcount=0;
+    rcount=0;
   }
   else if (!rightVis && leftVis)
   {  //left sensor is on
-    if (P<Pmax)
-      P=P+1;
-    motor(left, FORWARD,baseSpeedLeft - dec-P*i);
-    motor(right, FORWARD,baseSpeedRight + acc+P*i);  
+      lcount++;
+    if (lcount==5000)
+    {
+
+        motor(right, FORWARD, 85);
+        lcount=0;
+          delay(100);
+    }
+    motor(left, FORWARD,0);
+    motor(right, FORWARD,baseSpeedRight);  
+    count=0;
   }
   else if (rightVis && !leftVis )
   {   // right sensor is on
-    if (P<Pmax)
-      P=P+1;
-    motor(left, FORWARD,baseSpeedLeft + acc+P*i);
-    motor(right, FORWARD,baseSpeedRight - dec-P*i);  
+        rcount++;
+    if (rcount==5000)
+    {
+        motor(left, FORWARD, 80);
+        rcount=0;
+          delay(100);
+    }
+    motor(left, FORWARD,baseSpeedLeft);
+    motor(right, FORWARD,0);  
+    count=0;
   }
   else if (rightVis && leftVis)
   {
-    P=0;
-    motor(left, FORWARD,baseSpeedLeft);
-    motor(right, FORWARD,baseSpeedRight);  
+    motor(right, FORWARD, 85);
   }
 }
 
