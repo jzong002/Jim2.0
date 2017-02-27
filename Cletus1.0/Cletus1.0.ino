@@ -1,7 +1,7 @@
-#include <QTRSensors.h>
-#include <Servo.h>
+#include <Wire.h>
+#define uchar unsigned char
 
-// Codes for the motor function.
+// Enumeration for the motor function.
 #define FORWARD 1
 #define BACKWARD 2
 #define BRAKE 3
@@ -19,39 +19,20 @@
   const int fullStop = 8;
   
 //                              Hard is full and reverse, plain is one stop, soft is one slowed
-//Servo Speeds                  S     TLH   TL  TLS   TRS   TR    TRH   Rev   Stop
-const int leftServoSpeed[] =  { 180,  0,    90, 95,   180,  180,  180,  0,    90 };
-const int rightServoSpeed[] = { 0,    0,    0,  0,    85,   90,   180,  180,  91 };
+//motor Speeds                  S     TLH   TL    TLS   TRS   TR    TRH   Rev   Stop
+const int leftServoSpeed[] =  { 100,  0,    80,   95,   100,  100,  200,  100,  0 };
+const int rightServoSpeed[] = { 100,  200,  100,  100,  95,   80,   0,    100,  0 };
+const int leftMotor = 3;
+const int rightMotor = 4;
 
-// Turn speeds
-const int left90 = 560; // number of milliseconds that the servos need to turn hard left for a 90 degree turn
-const int right90 = 560; // number of milliseconds that the servos need to turn hard right for a 90 degree turn
+//number of miiliseconds to stall each iteration
+const int scanTime = 5;
 
-//Object size times
-const int strafeTime = 1000; // time spent traveling left or right to avoid an object
-const int forwardTime = 2000; // time spent traveling parallel to the line to pass the object
-
-//pins and objects
-const int SonicSensorPin = 11;
-const int leftServoPin = 12;
-const int rightServoPin = 13;
-const int goButtonPin = 1;
-const int ObjectDistance = 10; // number of cm to consider an object seen within
-const int scanTime = 100; //ms
-const bool avoidObjects = false; //when it is true it will take sonic sensor input.
-
-#define NUM_SENSORS   8     // number of sensors used
-#define TIMEOUT       2500  // waits for 2500 microseconds for sensor outputs to go low
-#define EMITTER_PIN   2     // emitter is controlled by digital pin 2
-// sensors 0 through 7 are connected to digital pins 3 through 10, respectively
-QTRSensorsRC qtrrc((unsigned char[]) {3, 4, 5, 6, 7, 8, 9, 10}, NUM_SENSORS, TIMEOUT, EMITTER_PIN); 
-
-const int sensorThreasholds[] = {1800,1500,1500,1500,1500,1500,1500,1500};
-unsigned int sensorValues[NUM_SENSORS];
-boolean sensorSeen[NUM_SENSORS];
-
-Servo leftServo;
-Servo rightServo;
+//First sensor is left, last is right
+const uchar sensorThreasholds[] = {200,200,200,200,200,200,200,200};
+uchar sensorValues[16]; //only uses even bytes, so 0,2, ...14
+boolean sensorSeen[8];  //used to simplify the logic
+uchar t; //iterator for sensor reading
 
 //--------------------------------------------------//
 // Setup function
@@ -63,26 +44,9 @@ Servo rightServo;
 void setup()
 {
   // prep the sensors that we need
-  leftServo.attach(leftServoPin);
-  rightServo.attach(rightServoPin);
+  Wire.begin();  //join the i2c bus
+  t=0;
   turn(fullStop);
-
-  // Wait on button press before moving on to loop function
-  while(digitalRead(goButtonPin) != HIGH) { } // do nothing
-  
-  //testing object avoidance
-  if(objectSeen())
-  {
-    driveAroundObject();
-  } 
-  else
-  {
-    turn(straight);  
-    delay(250);
-  }
-  turn(fullStop);    
-  
-  while(1) {}
 }
 
 //--------------------------------------------------//
@@ -94,47 +58,11 @@ void setup()
 //--------------------------------------------------//
 void loop()
 {
-  // Read values from sonic sensor to see if there is an object to avoid
-  if (avoidObjects)
-  {
-    if (objectSeen())
-    {
-      //turn to avoid it
-      driveAroundObject();
-    }
-  }
+  // Here is where the code for XBee and stoplights will go:
+      /*******************/ 
   // read values from line sensor and correct
   followLine();
   delay(scanTime);
-}
-
-//--------------------------------------------------//
-// driveAroundObject function
-//--------------------------------------------------//
-// Move the robot orthagonally then parallel, then 
-// orthagonally again to avoid the object in the path
-//--------------------------------------------------//
-void driveAroundObject()
-{
-  // turn to the left and drive straight to avoid the object
-  turn(turnLeftHard);
-  delay(left90);
-  turn(straight);
-  delay(strafeTime);
-  //turn right and go straight to pass the object
-  turn(turnRightHard);
-  delay(right90);
-  turn(straight);
-  delay(forwardTime);
-  //turn right and go straight to get back to the line
-  turn(turnRightHard);
-  delay(right90);
-  turn(straight);
-  delay(strafeTime);
-  //turn left to re align with the line
-  turn(turnLeftHard);
-  delay(left90);
-  turn(straight);
 }
 
 //--------------------------------------------------//
@@ -145,10 +73,25 @@ void driveAroundObject()
 //--------------------------------------------------//
 void followLine()
 {
-  qtrrc.read(sensorValues);
-  for (unsigned char i = 0; i < NUM_SENSORS; i++)
+  //read the sensors off the i2c
+  Wire.requestFrom(9,16);   //request 16 bytes from slave device #9
+  while(Wire.available())   //slave device may send less than requested
   {
-    if (sensorValues[i] < sensorThreasholds[i])
+    sensorValues[t] = Wire.read();  //read the sensor value byte as a character
+    if (t < 15)
+    {
+      t++;
+    }
+    else
+    {
+      t=0;
+    }
+  }
+
+  //transfer sensors to the boolean array
+  for (uchar i = 0; i < 8; i++)
+  {
+    if (sensorValues[2*i] < sensorThreasholds[i])  //weird but multiply by 2 so that we only use the even bytes: 0 -> 0, 2 -> 1 ... 14 -> 7
     { sensorSeen[i] = true; }
     else
     { sensorSeen[i] = false; }
@@ -170,49 +113,6 @@ void followLine()
 }
 
 //--------------------------------------------------//
-// objectSeen function
-//--------------------------------------------------//
-// Check if an object is seen by comparing the sonic
-// sensor's value to the object distance value
-// Return Boolean
-//--------------------------------------------------//
-boolean objectSeen()
-{
-  double duration, cm;
-  // The PING is triggered by a HIGH pulse of 2 or more microseconds.
-  // Give a short LOW pulse beforehand to ensure a clean HIGH pulse:
-  pinMode(SonicSensorPin, OUTPUT);
-  digitalWrite(SonicSensorPin, LOW);
-  delayMicroseconds(2);
-  digitalWrite(SonicSensorPin, HIGH);
-  delayMicroseconds(5);
-  digitalWrite(SonicSensorPin, LOW);
-  // The same pin is used to read the signal from the PING: a HIGH
-  // pulse whose duration is the time (in microseconds) from the sending
-  // of the ping to the reception of its echo off of an object.
-  pinMode(SonicSensorPin, INPUT);
-  duration = pulseIn(SonicSensorPin, HIGH);
-  // convert the time into a distance
-  cm = microsecondsToCentimeters(duration);
-  return (cm < ObjectDistance);
-}
-
-//--------------------------------------------------//
-// microsecondsToCentimeters function
-//--------------------------------------------------//
-// Calculate the distance of the object based on the 
-// duration given.
-// The speed of sound is 340 m/s or 29 microseconds 
-// per centimeter. The ping travels out and back, so
-// to find the distance of the object we take half 
-// of the distance travelled.
-//--------------------------------------------------//
-long microsecondsToCentimeters(double microseconds) 
-{
-  return microseconds / 29.0 / 2.0;
-}
-
-//--------------------------------------------------//
 // turn function
 //--------------------------------------------------//
 // given a direction call the servo writes that assign
@@ -220,8 +120,16 @@ long microsecondsToCentimeters(double microseconds)
 //--------------------------------------------------//
 void turn(int Direction)
 {
-  leftServo.write(leftServoSpeed[Direction]);
-  rightServo.write(rightServoSpeed[Direction]);
+  if (Direction == reverse)
+  {
+    motor(leftMotor,BACKWARD,leftServoSpeed[Direction]);
+    motor(rightMotor,BACKWARD,rightServoSpeed[Direction]);
+  }
+  else
+  {
+    motor(leftMotor,FORWARD,leftServoSpeed[Direction]);
+    motor(rightMotor,FORWARD,rightServoSpeed[Direction]);
+  }
 }
 
 
