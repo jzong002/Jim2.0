@@ -19,14 +19,16 @@
   const int fullStop = 8;
   
 //                              Hard is full and reverse, plain is one stop, soft is one slowed
-//motor Speeds                  S     TLH   TL    TLS   TRS   TR    TRH   Rev   Stop
-const int leftServoSpeed[] =  { 100,  0,    80,   95,   100,  100,  200,  100,  0 };
-const int rightServoSpeed[] = { 100,  200,  100,  100,  95,   80,   0,    100,  0 };
+//motor Speeds                  S    TLH  TL   TLS  TRS  TR   TRH  Rev  Stop
+const int leftServoSpeed[] =  { 68,  0,   0,   65,  70,  65,  65,  65,  0 };
+const int rightServoSpeed[] = { 66,  68,  68,  68,  65,  0,   0,   63,  0 };
 const int leftMotor = 3;
 const int rightMotor = 4;
+const int kickTime = 100; //ms
+const int kickSpeed = 100;
 
 //number of miiliseconds to stall each iteration
-const int scanTime = 5;
+const int scanTime = 0;
 
 //First sensor is left, last is right
 const uchar sensorThreasholds[] = {200,200,200,200,200,200,200,200};
@@ -43,10 +45,16 @@ uchar t; //iterator for sensor reading
 //--------------------------------------------------//
 void setup()
 {
+  kickMotors();
+  //turn(straight);
+  //while (true){}
   // prep the sensors that we need
+  Serial1.begin(9600);
+  pinMode(52, OUTPUT);
+  digitalWrite(52,HIGH);
   Wire.begin();  //join the i2c bus
   t=0;
-  turn(fullStop);
+  //turn(fullStop);
 }
 
 //--------------------------------------------------//
@@ -59,7 +67,24 @@ void setup()
 void loop()
 {
   // Here is where the code for XBee and stoplights will go:
-      /*******************/ 
+  if (Serial1.available())
+    xbIn=Serial1.read();
+  if (xbIn=='a')
+  {
+    
+  }
+  else if (xbIn=='s')
+  {
+    
+  }
+  else if (xbIn=='d')
+  {
+    
+  }
+  else if (xbIn=='f')
+  {
+    
+  }
   // read values from line sensor and correct
   followLine();
   delay(scanTime);
@@ -132,6 +157,12 @@ void turn(int Direction)
   }
 }
 
+void kickMotors()
+{
+  motor(leftMotor,FORWARD,kickSpeed);
+  motor(rightMotor,FORWARD,kickSpeed);
+  delay(kickTime);
+}
 
 //==================================================//
 // Code to make the motors work
