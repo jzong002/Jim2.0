@@ -1,6 +1,12 @@
 #include <Wire.h>
 #define uchar unsigned char
 
+//led pins for testing
+const int leftPower = 35;
+const int leftGround = 34;
+const int rightPower = 49;
+const int rightGround = 48;
+
 // Enumeration for the motor function.
 #define FORWARD 1
 #define BACKWARD 2
@@ -36,6 +42,9 @@ uchar sensorValues[16]; //only uses even bytes, so 0,2, ...14
 boolean sensorSeen[8];  //used to simplify the logic
 uchar t; //iterator for sensor reading
 
+//Xbee char buffer
+byte xbIn;
+
 //--------------------------------------------------//
 // Setup function
 //--------------------------------------------------//
@@ -50,8 +59,19 @@ void setup()
   //while (true){}
   // prep the sensors that we need
   Serial1.begin(9600);
+  
   pinMode(52, OUTPUT);
   digitalWrite(52,HIGH);
+
+  pinMode(leftPower, OUTPUT);
+  pinMode(leftGround, OUTPUT);
+  pinMode(rightPower, OUTPUT);
+  pinMode(rightGround, OUTPUT);
+  digitalWrite(leftPower, LOW);
+  digitalWrite(leftGround, LOW);
+  digitalWrite(rightPower, LOW);
+  digitalWrite(rightGround, LOW);
+  
   Wire.begin();  //join the i2c bus
   t=0;
   //turn(fullStop);
@@ -124,15 +144,35 @@ void followLine()
   // find the line, call the appropriate turn
   // this method checks outsides first and then moves in
   if (sensorSeen[0])
-  { turn(turnLeft); }
+  { 
+    turn(turnLeft); 
+    digitalWrite(rightPower, LOW);
+    digitalWrite(leftPower, HIGH);
+  }
   else if (sensorSeen[7])
-  { turn(turnRight); }
+  { 
+    turn(turnRight); 
+    digitalWrite(rightPower, HIGH);
+    digitalWrite(leftPower, LOW);
+  }
   else if (sensorSeen[1])
-  { turn(turnLeftSoft); }
+  {
+    turn(turnLeftSoft); 
+    digitalWrite(rightPower, LOW);
+    digitalWrite(leftPower, HIGH);
+  }
   else if (sensorSeen[6])
-  { turn(turnRightSoft); }
+  { 
+    turn(turnRightSoft);
+    digitalWrite(rightPower, HIGH);
+    digitalWrite(leftPower, LOW);
+  }
   else if (sensorSeen[2] || sensorSeen[3] || sensorSeen[4] || sensorSeen[5])
-  { turn(straight); }
+  { 
+    turn(straight);
+    digitalWrite(rightPower, LOW);
+    digitalWrite(leftPower, LOW);
+  }
   else // nothing seen, turn left
   { turn(turnLeft); }
 }
