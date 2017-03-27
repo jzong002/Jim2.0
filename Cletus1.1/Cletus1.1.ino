@@ -21,8 +21,8 @@ const int rightGround = 48;
   
 //                              Hard is full and reverse, plain is one stop, soft is one slowed
 //motor Speeds                  S    TLH  TL   TLS  TRS  TR   TRH  Rev  Stop
-const int leftServoSpeed[] =  { 0,    180,  90,   94,   0,    0,    0,    180,  90 };
-const int rightServoSpeed[] = { 180,  180,  180,  180,  95,   91,   0,    0,    91 };
+const int rightServoSpeed[] = { 0,    180,  90,   94,   0,    0,    0,    180,  90 };
+const int leftServoSpeed[] =  { 180,  180,  180,  180,  95,   91,   0,    0,    91 };
 Servo leftServo;
 Servo rightServo;
 
