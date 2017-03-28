@@ -8,6 +8,9 @@ const int leftGround = 34;
 const int rightPower = 49;
 const int rightGround = 48;
 
+int power[] = {25, 29, 33, 37, 41, 45, 49, 53};
+int ground[] = {52, 48, 44, 40, 36, 32, 28, 24};
+
 // enum Steering
   const int straight = 0;
   const int turnLeftHard = 1;
@@ -21,8 +24,13 @@ const int rightGround = 48;
   
 //                              Hard is full and reverse, plain is one stop, soft is one slowed
 //motor Speeds                  S    TLH  TL   TLS  TRS  TR   TRH  Rev  Stop
-const int rightServoSpeed[] = { 0,    180,  90,   94,   0,    0,    0,    180,  90 };
-const int leftServoSpeed[] =  { 180,  180,  180,  180,  95,   91,   0,    0,    91 };
+const int leftServoSpeed[] = { 108,  93,  93,  100, 108, 108, 108, 93,  93 };
+const int rightServoSpeed[] = { 80,  80,  80,  80,  84,  93,  93,  93,  93 };
+const int leftHalfSpeed[] = { 98,  93,  93,  96, 98, 98, 98, 93,  93 };
+const int rightHalfSpeed[] = { 86,  86,  86,  86,  88,  93,  93,  93,  93 };
+const int stopTime = 5000;
+bool stopped = false;
+bool slow = false;
 Servo leftServo;
 Servo rightServo;
 
@@ -48,12 +56,19 @@ byte xbIn;
 void setup()
 {
   // prep the sensors that we need
-  Serial1.begin(9600);
+  Serial3.begin(9600);
   
-  pinMode(52, OUTPUT);
-  digitalWrite(52,HIGH);
+  //pinMode(52, OUTPUT);
+  //digitalWrite(52,HIGH);
 
-  pinMode(leftPower, OUTPUT);
+  for(int j=0; j < 7; j++)
+  {
+    pinMode(power[j],OUTPUT);
+    pinMode(ground[j],OUTPUT);
+    digitalWrite(ground[j],LOW);
+  }
+
+/*  pinMode(leftPower, OUTPUT);
   pinMode(leftGround, OUTPUT);
   pinMode(rightPower, OUTPUT);
   pinMode(rightGround, OUTPUT);
@@ -61,7 +76,7 @@ void setup()
   digitalWrite(leftGround, LOW);
   digitalWrite(rightPower, LOW);
   digitalWrite(rightGround, LOW);
-  
+ */ 
   Wire.begin();  //join the i2c bus
   t=0;
 
@@ -81,23 +96,27 @@ void setup()
 void loop()
 {
   // Here is where the code for XBee and stoplights will go:
-  if (Serial1.available())
-    xbIn=Serial1.read();
-  if (xbIn=='a')
+  if (Serial3.available())
+    xbIn=Serial3.read();
+  if (xbIn=='g')
   {
-    
+    slow = true;
+    stopped = false;
+    digitalWrite(rightPower, HIGH);
+    digitalWrite(leftPower, HIGH);
   }
-  else if (xbIn=='s')
+  else if (xbIn=='s' && !stopped)
   {
-    
+    slow = false;
+    digitalWrite(rightPower, LOW);
+    digitalWrite(leftPower, LOW);
+    turn(fullStop);
+    stopped = true;
+    delay(stopTime);
   }
-  else if (xbIn=='d')
+  else
   {
-    
-  }
-  else if (xbIn=='f')
-  {
-    
+    slow = false;
   }
   // read values from line sensor and correct
   followLine();
@@ -131,44 +150,51 @@ void followLine()
   for (uchar i = 0; i < 8; i++)
   {
     if (sensorValues[2*i] < sensorThreasholds[i])  //weird but multiply by 2 so that we only use the even bytes: 0 -> 0, 2 -> 1 ... 14 -> 7
-    { sensorSeen[i] = true; }
+    { sensorSeen[i] = true; 
+      digitalWrite(power[i],HIGH);
+    }
     else
-    { sensorSeen[i] = false; }
+    { sensorSeen[i] = false;
+      digitalWrite(power[i],LOW);
+    }
   }
   // find the line, call the appropriate turn
   // this method checks outsides first and then moves in
-  if (sensorSeen[0])
+  if (sensorSeen[1])
   { 
     turn(turnLeft); 
-    digitalWrite(rightPower, LOW);
-    digitalWrite(leftPower, HIGH);
-  }
-  else if (sensorSeen[7])
-  { 
-    turn(turnRight); 
-    digitalWrite(rightPower, HIGH);
-    digitalWrite(leftPower, LOW);
-  }
-  else if (sensorSeen[1])
-  {
-    turn(turnLeftSoft); 
-    digitalWrite(rightPower, LOW);
-    digitalWrite(leftPower, HIGH);
+    //digitalWrite(rightPower, LOW);
+    //digitalWrite(leftPower, HIGH);
   }
   else if (sensorSeen[6])
   { 
-    turn(turnRightSoft);
-    digitalWrite(rightPower, HIGH);
-    digitalWrite(leftPower, LOW);
+    turn(turnRight); 
+    //digitalWrite(rightPower, HIGH);
+    //digitalWrite(leftPower, LOW);
   }
-  else if (sensorSeen[2] || sensorSeen[3] || sensorSeen[4] || sensorSeen[5])
+  else if (sensorSeen[2])
+  {
+    turn(turnLeftSoft); 
+    //digitalWrite(rightPower, LOW);
+    //digitalWrite(leftPower, HIGH);
+  }
+  else if (sensorSeen[5])
+  { 
+    turn(turnRightSoft);
+    //digitalWrite(rightPower, HIGH);
+    //digitalWrite(leftPower, LOW);
+  }
+  else if (sensorSeen[3] || sensorSeen[4])
   { 
     turn(straight);
-    digitalWrite(rightPower, LOW);
-    digitalWrite(leftPower, LOW);
+    //digitalWrite(rightPower, LOW);
+    //digitalWrite(leftPower, LOW);
   }
   else // nothing seen, turn left
-  { turn(turnLeft); }
+  { turn(straight);
+    //digitalWrite(rightPower, HIGH);
+    //digitalWrite(leftPower, HIGH);
+  }
 }
 
 //--------------------------------------------------//
@@ -179,6 +205,14 @@ void followLine()
 //--------------------------------------------------//
 void turn(int Direction)
 {
-  leftServo.write(leftServoSpeed[Direction]);
-  rightServo.write(rightServoSpeed[Direction]);
+  if (slow)
+  {
+    leftServo.write(leftHalfSpeed[Direction]);
+    rightServo.write(rightHalfSpeed[Direction]);
+  }
+  else
+  {
+    leftServo.write(leftServoSpeed[Direction]);
+    rightServo.write(rightServoSpeed[Direction]);
+  }
 }
